@@ -1,5 +1,5 @@
 name: ht_authentication_repository
-description: A Very Good Project created by Very Good CLI.
+description: A Flutter package for managing authentication using the Headlines Toolkit, providing a standardized interface for user registration, login, logout, and more.
 publish_to: none
 repository: https://github.com/headlines-toolkit/ht-authentication-repository 
 
