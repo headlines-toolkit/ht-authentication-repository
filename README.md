@@ -13,10 +13,6 @@ This repository provides a standardized way to handle user authentication. It ab
 *   **Password Reset:** Handle password reset requests.
 *   **Authentication State Management:** Stream authentication state changes.
 
-## Architecture
-
-This package follows the Headlines Toolkit architectural principles, specifically the Repository pattern. It acts as an intermediary between the application's business logic (BLoCs) and the data layer (represented by `ht_authentication_client`).
-
 ## Dependencies
 
 *   `flutter`: Flutter SDK.
