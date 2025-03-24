@@ -9,14 +9,13 @@ This repository provides a standardized way to handle user authentication. It ab
 *   **Sign Up:** Register new users.
 *   **Sign In:** Authenticate existing users.
 *   **Sign Out:** Log out users.
-*   **User Management:** Retrieve and update user information.
-*   **Password Reset:** Handle password reset requests.
+*   **Delete:** Delete the user account.
 *   **Authentication State Management:** Stream authentication state changes.
 
 ## Dependencies
 
 *   `flutter`: Flutter SDK.
-*   `ht_authentication_client`: Headlines Toolkit authentication client.
+*   `ht_authentication_client`: Abstract authentication client.
 *   `rxdart`: Reactive extensions for Dart.
 
 ## Getting Started
