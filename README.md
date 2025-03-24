@@ -45,59 +45,62 @@ This repository provides a standardized way to handle user authentication. It ab
     );
     ```
 
-4.  **Use the repository in your BLoCs:**
-
-    Inject the `HtAuthenticationRepository` instance into your BLoCs and use its methods to handle authentication-related events.
-
 ## Example
 
 ```dart
-// Example of using the repository in a BLoC
-class AuthenticationBloc extends Bloc<AuthenticationEvent, AuthenticationState> {
-  AuthenticationBloc({
-    required HtAuthenticationRepository authenticationRepository,
-  }) : _authenticationRepository = authenticationRepository,
-        super(const AuthenticationState.unknown()) {
-    on<AuthenticationStatusChanged>(_onAuthenticationStatusChanged);
-    on<AuthenticationLogoutRequested>(_onAuthenticationLogoutRequested);
+import 'package:ht_authentication_client/ht_authentication_client.dart';
+import 'package:ht_authentication_repository/ht_authentication_repository.dart';
 
-    _authenticationStatusSubscription = _authenticationRepository.status
-        .listen((status) => add(AuthenticationStatusChanged(status)));
+void main() async {
+  // Initialize the authentication client (replace with your actual client).
+  final authenticationClient = HtAuthenticationClient(); 
+
+  // Initialize the authentication repository.
+  final authenticationRepository = HtAuthenticationRepository(
+    authenticationClient: authenticationClient,
+  );
+
+  // Access the user stream.
+  authenticationRepository.user.listen((user) {
+    print('User: ${user.id}');
+  });
+
+  // Sign in with email and password (replace with actual credentials).
+  try {
+    await authenticationRepository.signInWithEmailAndPassword(
+      email: 'test@example.com',
+      password: 'password',
+    );
+  } catch (e) {
+    print('Sign in failed: $e');
   }
 
-  final HtAuthenticationRepository _authenticationRepository;
-  late StreamSubscription<AuthenticationStatus> _authenticationStatusSubscription;
-
-  Future<void> _onAuthenticationStatusChanged(
-      AuthenticationStatusChanged event,
-      Emitter<AuthenticationState> emit,
-      ) async {
-    switch (event.status) {
-      case AuthenticationStatus.unauthenticated:
-        return emit(const AuthenticationState.unauthenticated());
-      case AuthenticationStatus.authenticated:
-        final user = await _authenticationRepository.user;
-        return emit(
-          user != null
-              ? AuthenticationState.authenticated(user)
-              : const AuthenticationState.unauthenticated(),
-        );
-      case AuthenticationStatus.unknown:
-        return emit(const AuthenticationState.unknown());
-    }
+    // Sign in with google.
+  try {
+    await authenticationRepository.signInWithGoogle();
+  } catch (e) {
+    print('Sign in failed: $e');
   }
 
-    Future<void> _onAuthenticationLogoutRequested(
-      AuthenticationLogoutRequested event,
-      Emitter<AuthenticationState> emit,
-    ) async {
-    _authenticationRepository.logOut();
+      // Sign in anonymously.
+  try {
+    await authenticationRepository.signInAnonymously();
+  } catch (e) {
+    print('Sign in failed: $e');
   }
 
-  @override
-  Future<void> close() {
-    _authenticationStatusSubscription.cancel();
-    return super.close();
+  // Sign out.
+  try {
+    await authenticationRepository.signOut();
+  } catch (e) {
+    print('Sign out failed: $e');
+  }
+
+    // Delete Account.
+  try {
+    await authenticationRepository.deleteAccount();
+  } catch (e) {
+    print('Delete account failed: $e');
   }
 }
 
