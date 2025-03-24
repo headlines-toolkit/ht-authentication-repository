@@ -1,7 +1,5 @@
 # HT Authentication Repository
 
-A Flutter package for managing authentication using the Headlines Toolkit.
-
 ## Overview
 
 This repository provides a standardized way to handle user authentication. It abstracts the underlying authentication client (`ht_authentication_client`) and provides a simple, consistent interface for interacting with authentication-related features.
