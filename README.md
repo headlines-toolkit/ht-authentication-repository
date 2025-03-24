@@ -1,62 +1,124 @@
-# Ht Authentication Repository
+# HT Authentication Repository
 
-[![style: very good analysis][very_good_analysis_badge]][very_good_analysis_link]
-[![Powered by Mason](https://img.shields.io/endpoint?url=https%3A%2F%2Ftinyurl.com%2Fmason-badge)](https://github.com/felangel/mason)
-[![License: MIT][license_badge]][license_link]
+A Flutter package for managing authentication using the Headlines Toolkit.
 
-A Very Good Project created by Very Good CLI.
+## Overview
 
-## Installation 💻
+This repository provides a standardized way to handle user authentication. It abstracts the underlying authentication client (`ht_authentication_client`) and provides a simple, consistent interface for interacting with authentication-related features.
 
-**❗ In order to start using Ht Authentication Repository you must have the [Dart SDK][dart_install_link] installed on your machine.**
+## Features
 
-Install via `dart pub add`:
+*   **Sign Up:** Register new users.
+*   **Sign In:** Authenticate existing users.
+*   **Sign Out:** Log out users.
+*   **User Management:** Retrieve and update user information.
+*   **Password Reset:** Handle password reset requests.
+*   **Authentication State Management:** Stream authentication state changes.
 
-```sh
-dart pub add ht_authentication_repository
+## Architecture
+
+This package follows the Headlines Toolkit architectural principles, specifically the Repository pattern. It acts as an intermediary between the application's business logic (BLoCs) and the data layer (represented by `ht_authentication_client`).
+
+## Dependencies
+
+*   `flutter`: Flutter SDK.
+*   `ht_authentication_client`: Headlines Toolkit authentication client.
+*   `rxdart`: Reactive extensions for Dart.
+
+## Getting Started
+
+1.  **Add the dependency:**
+
+    ```yaml
+    dependencies:
+      ht_authentication_repository:
+        git:
+          url: https://github.com/headlines-toolkit/ht-authentication-repository.git
+          ref: main
+    ```
+
+2.  **Import the package:**
+
+    ```dart
+    import 'package:ht_authentication_repository/ht_authentication_repository.dart';
+    ```
+
+3.  **Instantiate the repository:**
+
+    ```dart
+    final authenticationRepository = HtAuthenticationRepository(
+      authenticationClient: HtAuthenticationClient(), // Replace with your actual client
+    );
+    ```
+
+4.  **Use the repository in your BLoCs:**
+
+    Inject the `HtAuthenticationRepository` instance into your BLoCs and use its methods to handle authentication-related events.
+
+## Example
+
+```dart
+// Example of using the repository in a BLoC
+class AuthenticationBloc extends Bloc<AuthenticationEvent, AuthenticationState> {
+  AuthenticationBloc({
+    required HtAuthenticationRepository authenticationRepository,
+  }) : _authenticationRepository = authenticationRepository,
+        super(const AuthenticationState.unknown()) {
+    on<AuthenticationStatusChanged>(_onAuthenticationStatusChanged);
+    on<AuthenticationLogoutRequested>(_onAuthenticationLogoutRequested);
+
+    _authenticationStatusSubscription = _authenticationRepository.status
+        .listen((status) => add(AuthenticationStatusChanged(status)));
+  }
+
+  final HtAuthenticationRepository _authenticationRepository;
+  late StreamSubscription<AuthenticationStatus> _authenticationStatusSubscription;
+
+  Future<void> _onAuthenticationStatusChanged(
+      AuthenticationStatusChanged event,
+      Emitter<AuthenticationState> emit,
+      ) async {
+    switch (event.status) {
+      case AuthenticationStatus.unauthenticated:
+        return emit(const AuthenticationState.unauthenticated());
+      case AuthenticationStatus.authenticated:
+        final user = await _authenticationRepository.user;
+        return emit(
+          user != null
+              ? AuthenticationState.authenticated(user)
+              : const AuthenticationState.unauthenticated(),
+        );
+      case AuthenticationStatus.unknown:
+        return emit(const AuthenticationState.unknown());
+    }
+  }
+
+    Future<void> _onAuthenticationLogoutRequested(
+      AuthenticationLogoutRequested event,
+      Emitter<AuthenticationState> emit,
+    ) async {
+    _authenticationRepository.logOut();
+  }
+
+  @override
+  Future<void> close() {
+    _authenticationStatusSubscription.cancel();
+    return super.close();
+  }
+}
+
 ```
 
----
+## Testing
 
-## Continuous Integration 🤖
+This package includes a comprehensive suite of unit tests. To run the tests:
 
-Ht Authentication Repository comes with a built-in [GitHub Actions workflow][github_actions_link] powered by [Very Good Workflows][very_good_workflows_link] but you can also add your preferred CI/CD solution.
-
-Out of the box, on each pull request and push, the CI `formats`, `lints`, and `tests` the code. This ensures the code remains consistent and behaves correctly as you add functionality or make changes. The project uses [Very Good Analysis][very_good_analysis_link] for a strict set of analysis options used by our team. Code coverage is enforced using the [Very Good Workflows][very_good_coverage_link].
-
----
-
-## Running Tests 🧪
-
-To run all unit tests:
-
-```sh
-dart pub global activate coverage 1.2.0
-dart test --coverage=coverage
-dart pub global run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info
+```bash
+flutter test
 ```
 
-To view the generated coverage report you can use [lcov](https://github.com/linux-test-project/lcov).
+To generate coverage reports:
 
-```sh
-# Generate Coverage Report
-genhtml coverage/lcov.info -o coverage/
-
-# Open Coverage Report
-open coverage/index.html
+```bash
+flutter test --coverage
 ```
-
-[dart_install_link]: https://dart.dev/get-dart
-[github_actions_link]: https://docs.github.com/en/actions/learn-github-actions
-[license_badge]: https://img.shields.io/badge/license-MIT-blue.svg
-[license_link]: https://opensource.org/licenses/MIT
-[logo_black]: https://raw.githubusercontent.com/VGVentures/very_good_brand/main/styles/README/vgv_logo_black.png#gh-light-mode-only
-[logo_white]: https://raw.githubusercontent.com/VGVentures/very_good_brand/main/styles/README/vgv_logo_white.png#gh-dark-mode-only
-[mason_link]: https://github.com/felangel/mason
-[very_good_analysis_badge]: https://img.shields.io/badge/style-very_good_analysis-B22C89.svg
-[very_good_analysis_link]: https://pub.dev/packages/very_good_analysis
-[very_good_coverage_link]: https://github.com/marketplace/actions/very-good-coverage
-[very_good_ventures_link]: https://verygood.ventures
-[very_good_ventures_link_light]: https://verygood.ventures#gh-light-mode-only
-[very_good_ventures_link_dark]: https://verygood.ventures#gh-dark-mode-only
-[very_good_workflows_link]: https://github.com/VeryGoodOpenSource/very_good_workflows
