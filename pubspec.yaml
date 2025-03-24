@@ -7,12 +7,16 @@ environment:
   sdk: ^3.7.0
 
 dependencies: 
+  flutter:
+    sdk: flutter
   ht_authentication_client:
     git:
       url: https://github.com/headlines-toolkit/ht-authentication-client.git
       ref: main
+  rxdart: ^0.28.0
       
 dev_dependencies:
+  flutter_test:
+    sdk: flutter
   mocktail: ^1.0.4
-  test: ^1.25.8
   very_good_analysis: ^7.0.0
