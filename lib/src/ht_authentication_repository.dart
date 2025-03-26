@@ -2,7 +2,8 @@ import 'package:ht_authentication_client/ht_authentication_client.dart';
 import 'package:rxdart/rxdart.dart';
 
 /// {@template ht_authentication_repository}
-/// Repository which manages authentication.
+/// Repository which manages authentication using various providers.
+/// It abstracts the underlying [HtAuthenticationClient].
 /// {@endtemplate}
 class HtAuthenticationRepository {
   /// {@macro ht_authentication_repository}
@@ -26,22 +27,41 @@ class HtAuthenticationRepository {
   /// Defaults to a default [User] if there is no cached user.
   User get currentUser => _userSubject.value;
 
-  /// Signs in with email and password.
+  /// Sends a sign-in link to the provided email address.
   ///
-  /// Throws an [EmailSignInException] if sign-in fails.
-  Future<void> signInWithEmailAndPassword({
+  /// Throws a [SendSignInLinkException] if sending the link fails.
+  Future<void> sendSignInLinkToEmail({required String email}) async {
+    try {
+      await _authenticationClient.sendSignInLinkToEmail(email: email);
+    } on SendSignInLinkException {
+      rethrow; // Re-throw specific client exceptions directly
+    } catch (e, st) {
+      // Wrap generic exceptions
+      throw SendSignInLinkException(e, st);
+    }
+  }
+
+  /// Signs in the user using the email and the validated sign-in link.
+  ///
+  /// Throws an [InvalidSignInLinkException] if the link is invalid or expired.
+  /// Throws a [UserNotFoundException] if the email is not found.
+  Future<void> signInWithEmailLink({
     required String email,
-    required String password,
+    required String emailLink,
   }) async {
     try {
-      await _authenticationClient.signInWithEmailAndPassword(
+      await _authenticationClient.signInWithEmailLink(
         email: email,
-        password: password,
+        emailLink: emailLink,
       );
-    } on EmailSignInException catch (e, st) {
-      throw EmailSignInException(e, st);
+    } on InvalidSignInLinkException {
+      rethrow; // Re-throw specific client exceptions directly
+    } on UserNotFoundException {
+      rethrow; // Re-throw specific client exceptions directly
     } catch (e, st) {
-      throw EmailSignInException(e, st);
+      // Wrap generic exceptions, defaulting to InvalidSignInLinkException
+      // as the most likely failure mode if not UserNotFound.
+      throw InvalidSignInLinkException(e, st);
     }
   }
 
@@ -51,9 +71,10 @@ class HtAuthenticationRepository {
   Future<void> signInWithGoogle() async {
     try {
       await _authenticationClient.signInWithGoogle();
-    } on GoogleSignInException catch (e, st) {
-      throw GoogleSignInException(e, st);
+    } on GoogleSignInException {
+      rethrow; // Re-throw specific client exceptions directly
     } catch (e, st) {
+      // Wrap generic exceptions
       throw GoogleSignInException(e, st);
     }
   }
@@ -64,9 +85,10 @@ class HtAuthenticationRepository {
   Future<void> signInAnonymously() async {
     try {
       await _authenticationClient.signInAnonymously();
-    } on AnonymousLoginException catch (e, st) {
-      throw AnonymousLoginException(e, st);
+    } on AnonymousLoginException {
+      rethrow; // Re-throw specific client exceptions directly
     } catch (e, st) {
+      // Wrap generic exceptions
       throw AnonymousLoginException(e, st);
     }
   }
@@ -77,9 +99,10 @@ class HtAuthenticationRepository {
   Future<void> signOut() async {
     try {
       await _authenticationClient.signOut();
-    } on LogoutException catch (e, st) {
-      throw LogoutException(e, st);
+    } on LogoutException {
+      rethrow; // Re-throw specific client exceptions directly
     } catch (e, st) {
+      // Wrap generic exceptions
       throw LogoutException(e, st);
     }
   }
@@ -90,9 +113,10 @@ class HtAuthenticationRepository {
   Future<void> deleteAccount() async {
     try {
       await _authenticationClient.deleteAccount();
-    } on DeleteAccountException catch (e, st) {
-      throw DeleteAccountException(e, st);
+    } on DeleteAccountException {
+      rethrow; // Re-throw specific client exceptions directly
     } catch (e, st) {
+      // Wrap generic exceptions
       throw DeleteAccountException(e, st);
     }
   }
