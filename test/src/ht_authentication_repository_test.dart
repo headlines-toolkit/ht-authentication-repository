@@ -1,21 +1,41 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ht_authentication_client/ht_authentication_client.dart';
-import 'package:ht_authentication_repository/src/ht_authentication_repository.dart';
+import 'package:ht_authentication_repository/ht_authentication_repository.dart'; // Import the public API
 import 'package:mocktail/mocktail.dart';
 import 'package:rxdart/rxdart.dart';
 
+// Mocks
 class MockHtAuthenticationClient extends Mock
     implements HtAuthenticationClient {}
+
+class MockUser extends Mock
+    implements User {} // Add MockUser if needed for tests
+
+// Helper to create exceptions with mock StackTrace
+AuthException _createException(
+  Object error,
+  AuthException Function(Object, StackTrace) constructor,
+) {
+  return constructor(error, StackTrace.current);
+}
 
 void main() {
   group('HtAuthenticationRepository', () {
     late HtAuthenticationClient client;
     late HtAuthenticationRepository repository;
+    late BehaviorSubject<User> userSubject; // Declare userSubject here
 
     setUp(() {
       client = MockHtAuthenticationClient();
-      when(() => client.user).thenAnswer((_) => const Stream.empty());
+      userSubject = BehaviorSubject<User>(); // Initialize userSubject
+      // Mock client.user to return the stream from userSubject
+      when(() => client.user).thenAnswer((_) => userSubject.stream);
       repository = HtAuthenticationRepository(authenticationClient: client);
+    });
+
+    // Add tearDown to close the subject
+    tearDown(() {
+      userSubject.close();
     });
 
     test('constructor', () {
@@ -28,75 +48,139 @@ void main() {
       });
 
       test('emits new user when client emits', () {
-        final user = User(uid: 'test-uid');
-        final stream = BehaviorSubject<User>.seeded(user);
-        when(() => client.user).thenAnswer((_) => stream);
-        repository = HtAuthenticationRepository(authenticationClient: client);
+        final user1 = MockUser();
+        final user2 = User(uid: 'test-uid'); // Use a concrete User or MockUser
 
-        expect(repository.user, emitsInOrder([isA<User>(), user]));
+        // Expect the stream from the repository (which gets from userSubject)
+        expectLater(
+          repository.user,
+          // Seeded with default User(), then user1, then user2
+          emitsInOrder(<Matcher>[isA<User>(), equals(user1), equals(user2)]),
+        );
+
+        // Add users to the subject the repository is listening to
+        userSubject
+          ..add(user1)
+          ..add(user2);
       });
     });
 
     group('currentUser', () {
-      test('returns current user', () {
-        expect(repository.currentUser, isA<User>());
+      // Renamed test for clarity
+      test('reflects the latest user emitted by the stream', () async {
+        final user = MockUser();
+        // Optionally mock properties for better assertion
+        when(() => user.uid).thenReturn('mock-user-id');
+
+        // Add the mock user to the stream the repository is listening to
+        userSubject.add(user);
+
+        // Wait specifically for the 'user' we added to be emitted,
+        // ignoring the initial default user.
+        await expectLater(repository.user, emitsThrough(user));
+
+        // Now assert against the synchronous getter, which should be updated
+        expect(repository.currentUser, equals(user));
+        // Optionally assert properties
+        expect(repository.currentUser.uid, equals('mock-user-id'));
       });
     });
 
-    group('signInWithEmailAndPassword', () {
+    group('sendSignInLinkToEmail', () {
+      const email = 'test@example.com';
+
       test('calls client method', () async {
         when(
-          () => client.signInWithEmailAndPassword(
-            email: any(named: 'email'),
-            password: any(named: 'password'),
-          ),
+          () => client.sendSignInLinkToEmail(email: email),
         ).thenAnswer((_) async {});
 
-        await repository.signInWithEmailAndPassword(
-          email: 'test@example.com',
-          password: 'password',
-        );
+        await repository.sendSignInLinkToEmail(email: email);
 
-        verify(
-          () => client.signInWithEmailAndPassword(
-            email: 'test@example.com',
-            password: 'password',
-          ),
-        ).called(1);
+        verify(() => client.sendSignInLinkToEmail(email: email)).called(1);
       });
 
-      test('throws EmailSignInException on client error', () async {
-        final exception = EmailSignInException(Exception(), StackTrace.empty);
+      test('throws SendSignInLinkException on client error', () async {
+        final exception = _createException(
+          Exception(),
+          SendSignInLinkException.new,
+        );
         when(
-          () => client.signInWithEmailAndPassword(
-            email: any(named: 'email'),
-            password: any(named: 'password'),
-          ),
+          () => client.sendSignInLinkToEmail(email: email),
         ).thenThrow(exception);
 
         expect(
-          () => repository.signInWithEmailAndPassword(
-            email: 'test@example.com',
-            password: 'password',
-          ),
-          throwsA(isA<EmailSignInException>()),
+          () => repository.sendSignInLinkToEmail(email: email),
+          throwsA(isA<SendSignInLinkException>()),
         );
       });
 
-      test('throws EmailSignInException on general error', () async {
+      test('throws SendSignInLinkException on general error', () async {
         when(
-          () => client.signInWithEmailAndPassword(
-            email: any(named: 'email'),
-            password: any(named: 'password'),
-          ),
+          () => client.sendSignInLinkToEmail(email: email),
         ).thenThrow(Exception());
 
         expect(
-          () => repository.signInWithEmailAndPassword(
-            email: 'test@example.com',
-            password: 'password',
-          ),
-          throwsA(isA<EmailSignInException>()),
+          () => repository.sendSignInLinkToEmail(email: email),
+          throwsA(isA<SendSignInLinkException>()),
+        );
+      });
+    });
+
+    group('signInWithEmailLink', () {
+      const email = 'test@example.com';
+      const link = 'https://example.com/link';
+
+      test('calls client method', () async {
+        when(
+          () => client.signInWithEmailLink(email: email, emailLink: link),
+        ).thenAnswer((_) async {});
+
+        await repository.signInWithEmailLink(email: email, emailLink: link);
+
+        verify(
+          () => client.signInWithEmailLink(email: email, emailLink: link),
+        ).called(1);
+      });
+
+      test('throws InvalidSignInLinkException on client error', () async {
+        final exception = _createException(
+          Exception(),
+          InvalidSignInLinkException.new,
+        );
+        when(
+          () => client.signInWithEmailLink(email: email, emailLink: link),
+        ).thenThrow(exception);
+
+        expect(
+          () => repository.signInWithEmailLink(email: email, emailLink: link),
+          throwsA(isA<InvalidSignInLinkException>()),
+        );
+      });
+
+      test('throws UserNotFoundException on client error', () async {
+        final exception = _createException(
+          Exception(),
+          UserNotFoundException.new,
+        );
+        when(
+          () => client.signInWithEmailLink(email: email, emailLink: link),
+        ).thenThrow(exception);
+
+        expect(
+          () => repository.signInWithEmailLink(email: email, emailLink: link),
+          throwsA(isA<UserNotFoundException>()),
+        );
+      });
+
+      test('throws InvalidSignInLinkException on general error', () async {
+        when(
+          () => client.signInWithEmailLink(email: email, emailLink: link),
+        ).thenThrow(Exception());
+
+        // Repository wraps general errors into InvalidSignInLinkException
+        expect(
+          () => repository.signInWithEmailLink(email: email, emailLink: link),
+          throwsA(isA<InvalidSignInLinkException>()),
         );
       });
     });
@@ -111,7 +195,10 @@ void main() {
       });
 
       test('throws GoogleSignInException on client error', () async {
-        final exception = GoogleSignInException(Exception(), StackTrace.empty);
+        final exception = _createException(
+          Exception(),
+          GoogleSignInException.new,
+        );
         when(() => client.signInWithGoogle()).thenThrow(exception);
 
         expect(
@@ -140,9 +227,9 @@ void main() {
       });
 
       test('throws AnonymousLoginException on client error', () async {
-        final exception = AnonymousLoginException(
+        final exception = _createException(
           Exception(),
-          StackTrace.empty,
+          AnonymousLoginException.new,
         );
         when(() => client.signInAnonymously()).thenThrow(exception);
 
@@ -172,7 +259,7 @@ void main() {
       });
 
       test('throws LogoutException on client error', () async {
-        final exception = LogoutException(Exception(), StackTrace.empty);
+        final exception = _createException(Exception(), LogoutException.new);
         when(() => client.signOut()).thenThrow(exception);
 
         expect(() => repository.signOut(), throwsA(isA<LogoutException>()));
@@ -195,7 +282,10 @@ void main() {
       });
 
       test('throws DeleteAccountException on client error', () async {
-        final exception = DeleteAccountException(Exception(), StackTrace.empty);
+        final exception = _createException(
+          Exception(),
+          DeleteAccountException.new,
+        );
         when(() => client.deleteAccount()).thenThrow(exception);
 
         expect(
