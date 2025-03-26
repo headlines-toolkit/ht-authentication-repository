@@ -6,11 +6,13 @@ This repository provides a standardized way to handle user authentication. It ab
 
 ## Features
 
-*   **Sign Up:** Register new users.
-*   **Sign In:** Authenticate existing users.
-*   **Sign Out:** Log out users.
-*   **Delete:** Delete the user account.
-*   **Authentication State Management:** Stream authentication state changes.
+*   **Passwordless Sign-in (Magic Link):** Send a sign-in link to an email address and complete the sign-in process using the link.
+*   **Google Sign-In:** Authenticate users via their Google account.
+*   **Anonymous Sign-In:** Allow users to sign in anonymously.
+*   **Sign Out:** Log out the current user.
+*   **Delete Account:** Delete the current user's account.
+*   **Authentication State:** Stream the current user's authentication state.
+*   **Current User Access:** Synchronously get the latest cached user.
 
 ## Dependencies
 
@@ -61,45 +63,75 @@ void main() async {
 
   // Access the user stream.
   authenticationRepository.user.listen((user) {
-    print('User: ${user.id}');
+    print('User ID: ${user.id}, Status: ${user.status}');
   });
 
-  // Sign in with email and password (replace with actual credentials).
+  // Get the current user synchronously (might be the default empty user initially)
+  print('Current User ID: ${authenticationRepository.currentUser.id}');
+
+  // --- Email Link Sign-In Flow ---
+  const email = 'test@example.com';
   try {
-    await authenticationRepository.signInWithEmailAndPassword(
-      email: 'test@example.com',
-      password: 'password',
+    // 1. Send the link
+    await authenticationRepository.sendSignInLinkToEmail(email: email);
+    print('Sign-in link sent to $email');
+
+    // 2. In a separate part of your app (e.g., after user clicks the link),
+    //    get the emailLink and complete sign-in:
+    const emailLink = 'https://your-app.link/signIn?oobCode=...'; // Replace with actual link
+    await authenticationRepository.signInWithEmailLink(
+      email: email,
+      emailLink: emailLink,
     );
+    print('Signed in with email link successfully!');
+  } on SendSignInLinkException catch (e) {
+    print('Failed to send sign-in link: $e');
+  } on InvalidSignInLinkException catch (e) {
+    print('Failed to sign in with email link (invalid link): $e');
+  } on UserNotFoundException catch (e) {
+    print('Failed to sign in with email link (user not found): $e');
   } catch (e) {
-    print('Sign in failed: $e');
+    print('Email link sign-in failed: $e');
   }
 
-    // Sign in with google.
+  // --- Google Sign-In ---
   try {
     await authenticationRepository.signInWithGoogle();
+    print('Signed in with Google successfully!');
+  } on GoogleSignInException catch (e) {
+    print('Google sign-in failed: $e');
   } catch (e) {
-    print('Sign in failed: $e');
+    print('Google sign-in failed with unexpected error: $e');
   }
 
-      // Sign in anonymously.
+  // --- Anonymous Sign-In ---
   try {
     await authenticationRepository.signInAnonymously();
+    print('Signed in anonymously successfully!');
+  } on AnonymousLoginException catch (e) {
+    print('Anonymous sign-in failed: $e');
   } catch (e) {
-    print('Sign in failed: $e');
+    print('Anonymous sign-in failed with unexpected error: $e');
   }
 
-  // Sign out.
+  // --- Sign Out ---
   try {
     await authenticationRepository.signOut();
-  } catch (e) {
+    print('Signed out successfully!');
+  } on LogoutException catch (e) {
     print('Sign out failed: $e');
+  } catch (e) {
+    print('Sign out failed with unexpected error: $e');
   }
 
-    // Delete Account.
+  // --- Delete Account ---
   try {
     await authenticationRepository.deleteAccount();
-  } catch (e) {
+    print('Account deleted successfully!');
+  } on DeleteAccountException catch (e) {
     print('Delete account failed: $e');
+  } catch (e) {
+    print('Delete account failed with unexpected error: $e');
   }
 }
 
