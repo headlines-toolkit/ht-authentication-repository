@@ -6,6 +6,4 @@
 /// within the application.
 library ht_authentication_repository;
 
-export 'package:ht_authentication_client/ht_authentication_client.dart';
-
 export 'src/ht_authentication_repository.dart';
