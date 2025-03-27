@@ -1,19 +1,24 @@
 import 'package:ht_authentication_client/ht_authentication_client.dart';
+import 'package:ht_kv_storage_service/ht_kv_storage_service.dart';
 import 'package:rxdart/rxdart.dart';
 
 /// {@template ht_authentication_repository}
 /// Repository which manages authentication using various providers.
-/// It abstracts the underlying [HtAuthenticationClient].
+/// It abstracts the underlying [HtAuthenticationClient] and manages
+/// temporary storage for flows like passwordless sign-in.
 /// {@endtemplate}
 class HtAuthenticationRepository {
   /// {@macro ht_authentication_repository}
   HtAuthenticationRepository({
     required HtAuthenticationClient authenticationClient,
-  }) : _authenticationClient = authenticationClient {
+    required HtKVStorageService storageService,
+  }) : _authenticationClient = authenticationClient,
+       _storageService = storageService {
     _authenticationClient.user.listen(_userSubject.add);
   }
 
   final HtAuthenticationClient _authenticationClient;
+  final HtKVStorageService _storageService;
   final _userSubject = BehaviorSubject<User>.seeded(User());
 
   /// Stream of [User] which will emit the current user when
@@ -27,40 +32,79 @@ class HtAuthenticationRepository {
   /// Defaults to a default [User] if there is no cached user.
   User get currentUser => _userSubject.value;
 
-  /// Sends a sign-in link to the provided email address.
+  /// Sends a sign-in link to the provided email address and stores the email
+  /// temporarily for verification during sign-in.
   ///
-  /// Throws a [SendSignInLinkException] if sending the link fails.
+  /// Throws a [SendSignInLinkException] if sending the link or storing the
+  /// email fails.
   Future<void> sendSignInLinkToEmail({required String email}) async {
+    final st = StackTrace.current; // Capture stack trace early
     try {
       await _authenticationClient.sendSignInLinkToEmail(email: email);
+      // Store the email after the link is sent successfully
+      await _storageService.writeString(
+        key: StorageKey.pendingSignInEmail.stringValue,
+        value: email,
+      );
     } on SendSignInLinkException {
       rethrow; // Re-throw specific client exceptions directly
-    } catch (e, st) {
-      // Wrap generic exceptions
+    } on StorageWriteException catch (e) {
+      // Wrap storage write exceptions
+      throw SendSignInLinkException(e, st);
+    } catch (e) {
+      // Wrap other generic exceptions
       throw SendSignInLinkException(e, st);
     }
   }
 
-  /// Signs in the user using the email and the validated sign-in link.
+  /// Checks if the incoming link is a valid sign-in link.
+  /// Delegates directly to the [HtAuthenticationClient].
+  Future<bool> isSignInWithEmailLink({required String emailLink}) {
+    // Directly delegate to the client
+    return _authenticationClient.isSignInWithEmailLink(emailLink: emailLink);
+  }
+
+  /// Signs in the user using the validated sign-in link.
+  /// It retrieves the email stored during the `sendSignInLinkToEmail` step.
   ///
-  /// Throws an [InvalidSignInLinkException] if the link is invalid or expired.
-  /// Throws a [UserNotFoundException] if the email is not found.
-  Future<void> signInWithEmailLink({
-    required String email,
-    required String emailLink,
-  }) async {
+  /// Throws an [InvalidSignInLinkException] if the link is invalid, expired,
+  /// the stored email cannot be retrieved/validated, or cleanup fails.
+  /// Throws a [UserNotFoundException] if the email is not found by the client.
+  Future<void> signInWithEmailLink({required String emailLink}) async {
+    final st = StackTrace.current; // Capture stack trace early
+    String? storedEmail;
     try {
+      // 1. Retrieve the stored email
+      storedEmail = await _storageService.readString(
+        key: StorageKey.pendingSignInEmail.stringValue,
+      );
+
+      if (storedEmail == null) {
+        throw const StorageKeyNotFoundException(
+          'pending_signin_email',
+          message: 'Pending sign-in email not found in storage.',
+        );
+      }
+
+      // 2. Sign in using the retrieved email and the link
       await _authenticationClient.signInWithEmailLink(
-        email: email,
+        email: storedEmail,
         emailLink: emailLink,
+      );
+
+      // 3. Clear the stored email after successful sign-in
+      await _storageService.delete(
+        key: StorageKey.pendingSignInEmail.stringValue,
       );
     } on InvalidSignInLinkException {
       rethrow; // Re-throw specific client exceptions directly
     } on UserNotFoundException {
       rethrow; // Re-throw specific client exceptions directly
-    } catch (e, st) {
-      // Wrap generic exceptions, defaulting to InvalidSignInLinkException
-      // as the most likely failure mode if not UserNotFound.
+    } on StorageException catch (e) {
+      // Wrap any storage exception (read, delete, type mismatch, not found)
+      throw InvalidSignInLinkException(e, st);
+    } catch (e) {
+      // Wrap other generic exceptions
       throw InvalidSignInLinkException(e, st);
     }
   }
