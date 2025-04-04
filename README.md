@@ -1,4 +1,4 @@
-****# HT Authentication Repository
+# HT Authentication Repository
 
 ## Overview
 
