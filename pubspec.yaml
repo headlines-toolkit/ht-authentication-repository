@@ -12,11 +12,9 @@ dependencies:
   ht_authentication_client:
     git:
       url: https://github.com/headlines-toolkit/ht-authentication-client.git
-      ref: main
   ht_kv_storage_service:
     git:
       url: https://github.com/headlines-toolkit/ht-kv-storage-service.git
-      ref: main
   rxdart: ^0.28.0
       
 dev_dependencies:
