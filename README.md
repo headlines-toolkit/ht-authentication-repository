@@ -1,5 +1,7 @@
 # HT Authentication Repository
 
+> **Note:** This package is being archived. Please use the successor package [`ht-auth-repository`](https://github.com/headlines-toolkit/ht-auth-repository) instead.
+
 ## Overview
 
 This repository provides a standardized way to handle user authentication. It abstracts the underlying authentication client (`ht_authentication_client`) and provides a simple, consistent interface for interacting with authentication-related features.
